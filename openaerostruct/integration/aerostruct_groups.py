@@ -371,6 +371,17 @@ class AerostructPoint(om.Group):
                 "W0",
                 "load_factor",
                 "S_ref_total",
+                "total_energy_content",
+                "eta_b2s",
+                "eta_p"
             ],
-            promotes_outputs=["L_equals_W", "fuelburn", "CL", "CD", "CM", "cg"],
+            promotes_outputs=[
+                "L_equals_W", 
+                "fuelburn", 
+                "CL", 
+                "CD", 
+                "CM", 
+                "cg",
+                "endurance"
+            ],
         )
