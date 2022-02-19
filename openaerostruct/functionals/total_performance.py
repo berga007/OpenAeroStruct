@@ -67,3 +67,10 @@ class TotalPerformance(om.Group):
             promotes_inputs=["v", "rho", "cg", "S_ref_total", "*b_pts", "*widths", "*chords", "*sec_forces", "*S_ref"],
             promotes_outputs=["CM"],
         )
+
+        self.add_subsystem('endurance',
+            EnduranceForEletricPropDriven(surfaces=surfaces),
+            promotes_inputs=['*structural_mass', 'CL', 'CD','W0', 
+                'speed_of_sound', 'Mach_number', 'W0', 'eta_b2s', 
+                'eta_p', 'total_energy_content'],
+            promotes_outputs=['endurance'])
