@@ -14,6 +14,7 @@ from openaerostruct.geometry.geometry_mesh_transformations import (
     Dihedral,
     ShearZ,
     Rotate,
+    TaperWithOffset
 )
 
 
@@ -74,6 +75,18 @@ class GeometryMesh(om.Group):
 
         self.add_subsystem("taper", Taper(val=val, mesh=mesh, symmetry=symmetry), promotes_inputs=promotes)
 
+        # 1. Taper with Offset
+
+        if 'taper_with_offset' in surface:
+            val = surface['taper_with_offset']
+            promotes = ['taper_with_offset']
+        else:
+            val = 1.
+            promotes = []
+
+        self.add_subsystem('taper_with_offset', TaperWithOffset(val=val, mesh=mesh, symmetry=symmetry),
+                           promotes_inputs=promotes)
+        
         # 2. Scale X
 
         val = np.ones(ny)
@@ -172,7 +185,7 @@ class GeometryMesh(om.Group):
             promotes_outputs=["mesh"],
         )
 
-        names = ["taper", "scale_x", "sweep", "shear_x", "stretch", "shear_y", "dihedral", "shear_z", "rotate"]
+        names = ["taper_with_offset", "scale_x", "sweep", "shear_x", "stretch", "shear_y", "dihedral", "shear_z", "rotate"]
 
         for j in np.arange(len(names) - 1):
             self.connect(names[j] + ".mesh", names[j + 1] + ".in_mesh")
