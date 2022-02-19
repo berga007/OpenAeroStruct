@@ -1,6 +1,8 @@
 import openmdao.api as om
 
 from openaerostruct.functionals.breguet_range import BreguetRange
+from openaerostruct.functionals.endurance_elec_prop_driven import (
+    EnduranceForEletricPropDriven)
 from openaerostruct.functionals.equilibrium import Equilibrium
 from openaerostruct.functionals.center_of_gravity import CenterOfGravity
 from openaerostruct.functionals.moment_coefficient import MomentCoefficient
