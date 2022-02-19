@@ -105,8 +105,121 @@ class Taper(om.ExplicitComponent):
             dtaper = (1.0 - taper) / (1.0 - taper_ratio)
 
         partials["mesh", "taper"] = np.einsum("ijk, j->ijk", mesh - quarter_chord, dtaper)
+        
+        
+class TaperWithOffset(om.ExplicitComponent):
+    """
+    OpenMDAO component that manipulates the mesh by altering the spanwise chord linearly to produce
+    a tapered wing. Note that we apply taper around the leading edge line.
+    This Taper is applied at a certain distance from the root of the wing.
+    Currently only works when symmetry is used.
 
+    Parameters
+    ----------
+    taper : float
+        Taper ratio for the wing; 1 is untapered, 0 goes to a point at the tip.
 
+    Returns
+    -------
+    mesh[nx, ny, 3] : numpy array
+        Nodal mesh defining the tapered aerodynamic surface.
+    """
+
+    def initialize(self):
+        """
+        Declare options.
+        """
+        self.options.declare('val',
+                             desc='Initial value for the taper ratio.')
+        self.options.declare('mesh',
+                             desc='Nodal mesh defining the initial aerodynamic surface.')
+        self.options.declare('symmetry', default=False,
+                             desc='Flag set to true if surface is reflected about y=0 plane.')
+
+    def setup(self):
+        mesh = self.options['mesh']
+        val = self.options['val']
+
+        self.add_input('taper_with_offset', val=val)
+
+        # offset is a percentage of the semi-span, has no units
+        self.add_input('offset')
+
+        self.add_output('mesh', val=mesh, units='m')
+
+        self.declare_partials('*', '*')
+
+    def compute(self, inputs, outputs):
+        mesh = self.options['mesh']
+        symmetry = self.options['symmetry']
+        taper_ratio = inputs['taper_with_offset'][0]
+        offset = inputs['offset'][0]
+
+        # Get mesh parameters and the quarter-chord
+        le = mesh[0]
+        
+        num_x, num_y, _ = mesh.shape
+        x = le[:, 1]
+        span = x[-1] - x[0]
+
+        kink_location = offset/100 * span
+
+        # If symmetric, solve for the correct taper ratio, which is a linear
+        # interpolation problem
+        if symmetry:
+            xp = np.array([-span, -kink_location, 0.])
+            fp = np.array([taper_ratio, 1., 1.])
+
+        # Otherwise, we set up an interpolation problem for the entire wing, which
+        # consists of two linear segments
+        else:
+            xp = np.array([-span/2, -kink_location, 0., kink_location, span/2])
+            fp = np.array([taper_ratio, 1., 1., 1., taper_ratio])
+
+        taper = np.interp(x.real, xp.real, fp.real)
+
+        # Modify the mesh based on the taper amount computed per spanwise section
+        outputs['mesh'] = np.einsum('ijk,j->ijk', mesh - le, taper) + le
+
+    def compute_partials(self, inputs, partials):
+        mesh = self.options['mesh']
+        symmetry = self.options['symmetry']
+        taper_ratio = inputs['taper_with_offset'][0]
+
+        # Get mesh parameters and the quarter-chord
+        le = mesh[0]
+
+        num_x, num_y, _ = mesh.shape
+  
+        x = le[:, 1]
+        span = x[-1] - x[0]
+
+        kink_location = 0.75
+
+        # If symmetric, solve for the correct taper ratio, which is a linear
+        # interpolation problem
+        if symmetry:
+            xp = np.array([-span, -kink_location, 0.])
+            fp = np.array([taper_ratio, 1., 1.])
+
+        # Otherwise, we set up an interpolation problem for the entire wing, which
+        # consists of two linear segments
+        else:
+            xp = np.array([-span/2, -kink_location, 0., kink_location, span/2])
+            fp = np.array([taper_ratio, 1., 1., 1., taper_ratio])
+
+        taper = np.interp(x, xp, fp)
+
+        if taper_ratio == 1.:
+            dtaper = np.zeros(taper.shape)
+        else:
+            dtaper = (1.0 - taper) / (1.0 - taper_ratio)
+
+        partials['mesh', 'taper_with_offset'] = np.einsum(
+            'ijk, j->ijk', mesh - le, dtaper
+        )        
+
+        
 class ScaleX(om.ExplicitComponent):
     """
     OpenMDAO component that manipulates the mesh by modifying the chords along the span of the
